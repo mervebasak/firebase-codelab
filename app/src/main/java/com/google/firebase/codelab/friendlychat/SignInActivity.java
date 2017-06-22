@@ -45,7 +45,7 @@ public class SignInActivity extends AppCompatActivity implements
 
     private SignInButton mSignInButton;
 
-    private GoogleApiClient mGoogleApiClient;
+            private GoogleApiClient mGoogleApiClient;
 
     // Firebase instance variables
     private FirebaseAuth mFirebaseAuth;
