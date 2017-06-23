@@ -9,7 +9,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-
+        <activity android:name=".SignInActivity" />
         <activity android:name="com.google.firebase.codelab.friendlychat.MainActivity">
 
             <service
@@ -50,8 +50,3 @@
 
 
 </manifest>
-
-
-
-
-
