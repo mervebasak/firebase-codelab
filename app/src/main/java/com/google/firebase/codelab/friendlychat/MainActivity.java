@@ -42,6 +42,8 @@ import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 import com.firebase.ui.database.FirebaseRecyclerAdapter;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
 import com.google.android.gms.appinvite.AppInvite;
 import com.google.android.gms.appinvite.AppInviteInvitation;
 import com.google.android.gms.auth.api.Auth;
@@ -51,6 +53,7 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.analytics.FirebaseAnalytics;
 import com.google.firebase.appindexing.Action;
 import com.google.firebase.appindexing.FirebaseAppIndex;
 import com.google.firebase.appindexing.FirebaseUserActions;
@@ -59,6 +62,7 @@ import com.google.firebase.appindexing.builders.Indexables;
 import com.google.firebase.appindexing.builders.PersonBuilder;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.crash.FirebaseCrash;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -117,6 +121,7 @@ public class MainActivity extends AppCompatActivity
     private FirebaseAuth mFirebaseAuth;
     private FirebaseUser mFirebaseUser;
     private FirebaseRemoteConfig mFirebaseRemoteConfig;
+    private FirebaseAnalytics mFirebaseAnalytics;
 
 
     private DatabaseReference mFirebaseDatabaseReference;
@@ -125,11 +130,13 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         // Set default username is anonymous.
         mUsername = ANONYMOUS;
+
 
         // Initialize Firebase Auth
         mFirebaseAuth = FirebaseAuth.getInstance();
@@ -347,7 +354,11 @@ public class MainActivity extends AppCompatActivity
         // Fetch remote config.
         fetchConfig();
 
+        mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
 
+        mAdView = (AdView) findViewById(R.id.adView);
+        AdRequest adRequest = new AdRequest.Builder().build();
+        mAdView.loadAd(adRequest);
     }
 
     @Override
@@ -359,16 +370,25 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onPause() {
+        if (mAdView != null) {
+            mAdView.pause();
+        }
         super.onPause();
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        if (mAdView != null) {
+            mAdView.resume();
+        }
     }
 
     @Override
     public void onDestroy() {
+        if (mAdView != null) {
+            mAdView.destroy();
+        }
         super.onDestroy();
     }
 
@@ -379,9 +399,17 @@ public class MainActivity extends AppCompatActivity
         return true;
     }
 
+    private void causeCrash() {
+        throw new NullPointerException("Fake null pointer exception");
+    }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
+            case R.id.crash_menu:
+                FirebaseCrash.logcat(Log.ERROR, TAG, "crash caused");
+                causeCrash();
+                return true;
             case R.id.invite_menu:
                 sendInvitation();
                 return true;
@@ -397,6 +425,7 @@ public class MainActivity extends AppCompatActivity
                 return super.onOptionsItemSelected(item);
         }
     }
+
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
@@ -451,8 +480,28 @@ public class MainActivity extends AppCompatActivity
                 // Sending failed or it was canceled, show failure message to the user
                 Log.d(TAG, "Failed to send invitation.");
             }
+        } else if (requestCode == REQUEST_INVITE) {
+            if (resultCode == RESULT_OK) {
+                Bundle payload = new Bundle();
+                payload.putString(FirebaseAnalytics.Param.VALUE, "sent");
+                mFirebaseAnalytics.logEvent(FirebaseAnalytics.Event.SHARE,
+                        payload);
+                // Check how many invitations were sent and log.
+                String[] ids = AppInviteInvitation.getInvitationIds(resultCode,
+                        data);
+                Log.d(TAG, "Invitations sent: " + ids.length);
+            } else {
+                Bundle payload = new Bundle();
+                payload.putString(FirebaseAnalytics.Param.VALUE, "not sent");
+                mFirebaseAnalytics.logEvent(FirebaseAnalytics.Event.SHARE,
+                        payload);
+                // Sending failed or it was canceled, show failure message to
+                // the user
+                Log.d(TAG, "Failed to send invitation.");
+            }
         }
     }
+
 
     private void putImageInStorage(StorageReference storageReference, Uri uri, final String key) {
         storageReference.putFile(uri).addOnCompleteListener(MainActivity.this,
@@ -554,4 +603,8 @@ public class MainActivity extends AppCompatActivity
                 .build();
         startActivityForResult(intent, REQUEST_INVITE);
     }
+
+    private AdView mAdView;
+
+
 }
